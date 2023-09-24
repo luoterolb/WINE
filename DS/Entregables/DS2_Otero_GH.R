@@ -66,12 +66,8 @@ for (col in names(wine_data)) {
 quality_count <- table(wine_data$quality)
 print(quality_count)
 
-ggplot(wine_data, aes(x = quality)) +
-  geom_bar(fill = "#800020", color = "black") +
-  labs(title = "Frequency of Quality Categories", x = "Quality", y = "Frequency")
-
 color_palette <- colorRampPalette(c("red", "blue"))(6)
-ggplot(data = as.data.frame(quality_counts), aes(x = Var1, y = Freq)) +
+ggplot(data = as.data.frame(quality_count), aes(x = Var1, y = Freq)) +
   geom_bar(stat = "identity", fill = color_palette, color = "black") +
   labs(title = "Frequency of Quality Categories", x = "Quality", y = "Frequency")
 
