@@ -3,7 +3,7 @@
 ##    LUCÍA OTERO     #
 #######################
 
-
+dev.off()
 # Construir un script de R que :
 #   
 # El archivo winequality-red.csv es un archivo que tiene mediciones de un conjunto de variables 
@@ -63,15 +63,37 @@ for (col in names(wine_data)) {
   }
 }
 
+
+# No se encuentra, a priori, uja variable directamente relacionada con la calidad del vino. Sin embargo
+# parece que menor acidez volatil, mayor conc de ác citrico, menor densidad, menor pH, mayor sulfato, 
+# mayor conc de alcohol, de mayor calidad es el vino
+
 quality_count <- table(wine_data$quality)
 print(quality_count)
 
-color_palette <- colorRampPalette(c("red", "blue"))(6)
+#ggplot(wine_data, aes(x = quality)) +
+#  geom_bar(fill = "#800020", color = "black") +
+#  labs(title = "Frequency of Quality Categories", x = "Quality", y = "Frequency")
+
+color_palette_6c <- colorRampPalette(c("red", "blue"))(6)
 ggplot(data = as.data.frame(quality_count), aes(x = Var1, y = Freq)) +
-  geom_bar(stat = "identity", fill = color_palette, color = "black") +
+  geom_bar(stat = "identity", fill = color_palette_6c, color = "black") +
   labs(title = "Frequency of Quality Categories", x = "Quality", y = "Frequency")
 
 pairs(wine_data[,1:11], lower.panel=NULL, col = color_palette[wine_data$quality])
+
+# Hay muchos vinos de calidad 4 y 5 y pocos de calidad 3, 4, 7 y 8
+# Es dificil trabajar con estos datos.
+# La calidad de los vinos se pueden calificar de 1 a 10, en este df contamos con
+# información de vinos de calidades de 3 a 8. Sin embargo, se cuenta con muy pocos
+# casos de vinos de calidades 3, 4, 7 y 8 y muchos de calidades 4 y 5
+# este desbalance de la información dificulta al momento de hacer predicciones.
+# Para facilitar el tratamiento de datos, se agruparán los datos de la siguiente 
+# manera: calidad 3 y 4: "low"
+#         calidad 5 y 6: "medium"
+#         calidad 7 y 8: "high"
+
+
 
 # Scatter plot matrix
 # scatter_matrix <- ggpairs(wine_data, columns = 1:11,
@@ -94,25 +116,47 @@ wine_data$quality_group <- cut(wine_data$quality,
 # Convertir la variable en factor
 wine_data$quality_group <- factor(wine_data$quality_group, levels = c("low", "medium", "high"))
 
-# Crear un nuevo dataframe wine_data_grouped
-wine_data_grouped <- wine_data
-
-# Verificar la creación del nuevo dataframe
-head(wine_data_grouped)
-
-View(wine_data_grouped)
 str(wine_data)
 wine_data$quality = as.factor(wine_data$quality)
 View(wine_data)
 
-colores = c ("red", "white","blue")
-pairs(wine_data[,1:11], lower.panel=NULL, col = colores[wine_data$quality_group])
+# Crear un nuevo dataframe wine_data_grouped
+# wine_data_grouped <- wine_data
 
-wine_data_extremes <- wine_data_grouped[wine_data_grouped$quality_group != "medium", ]
-pairs(wine_data_extremes[,1:11], lower.panel=NULL, col = colores[wine_data_extremes$quality_group])
+# Verificar la creación del nuevo dataframe
+# head(wine_data_grouped)
+
+# View(wine_data_grouped)
+# str(wine_data)
+# wine_data$quality = as.factor(wine_data$quality)
+# View(wine_data)
+
 
 color_palette_3c <- colorRampPalette(c("red", "blue"))(3)
 pairs(wine_data[,1:11], lower.panel=NULL, col = color_palette_3c[wine_data$quality_group])
+
+# Con esta clasificación es más fácil ver tendencias. Por ejemplo, se observan 
+# algunas asociaciones, como la relación aparentemete lineal entre la acidez fija y el pH
+# (la cual es muy esperable) o la densidad
+# Sin embargo, la cantidad de datos de calidad intermedia, dificulta la visualización
+# de posibles tendencias. Para explorar, se los quitará transitoriamente.
+# 
+
+wine_data_extremes <- wine_data[wine_data$quality_group != "medium", ]
+View(wine_data_extremes)
+color_palette_2c <- c("red", "blue")
+pairs(wine_data_extremes[,1:11], lower.panel=NULL, col = color_palette_2c[wine_data$quality_group])
+
+
+#color_palette_3c <- colorRampPalette(c("red", "blue"))(3)
+pairs(wine_data[,1:11], lower.panel=NULL, col = color_palette_3c[wine_data$quality_group])
+
+
+
+
+
+
+
 
 
 ############################### Prueba ###############################
@@ -120,9 +164,9 @@ pairs(wine_data[,1:11], lower.panel=NULL, col = color_palette_3c[wine_data$quali
 plot_list <- list()
 
 # Iterate through each column (excluding 'quality')
-for (col in names(wine_data_grouped)[!names(wine_data_grouped) %in% c("quality", "quality_group")]) {
+for (col in names(wine_data)[!names(wine_data) %in% c("quality", "quality_group")]) {
   # Create a scatter plot for each column against 'quality'
-  p <- ggplot(wine_data_grouped, aes(x = quality, y = .data[[col]], color = quality_group)) +
+  p <- ggplot(wine_data, aes(x = quality, y = .data[[col]], color = quality_group)) +
     geom_point() +
     labs(title = paste("Scatter Plot of", col, "vs Quality"), x = "Quality", y = col)
   
@@ -149,6 +193,7 @@ grid.arrange(grobs = plot_list, ncol = 2)
 # mas alcohol y más sulfatos, mejor vino
 # desbalance de la cantidad de buenos y malos
 
+#Varaible categórica, por lo que se trata de un problema de calsificación
 
 
 
@@ -206,7 +251,102 @@ table(prediction, test$quality)
 # Evaluar los modelos entrenados, usando los datos de validación, graficando al menos los resultados 
 # de accuracy y kappa.
 # 
+
+# Voy a hacerlo para la columna quality y para la columna quality_group por separado para comparar
+# preprocesamiento: scale
+# create data partition para asegurarse distribución balanceada de datos
+# Como preprocesamiento elijo estandarización "BoxCox" que dio mejores resultados de Kappa y Accuaracy que "scale"
+# para Random Forest (que a su vez es el que modelo que dio mejores resultados, ver abajo)
+# Soy consciente que existen outliers y se trabajará con ellos
+
+sample_q = createDataPartition(wine_data$quality, p = 0.8, list=FALSE)
+train_q = wine_data[sample_q, ]
+test_q = wine_data[-sample_q, ]
+
+# CART
+fit_q_cart <- train(train_q[,1:11], train_q[,12], method="rpart", preProcess=c ("BoxCox"))
+fit_q_cart
+prediction_q_cart = predict(fit_q_cart, test_q[,1:11])
+table(prediction_q_cart, test_q$quality)
+
+fit_qg_cart <- train(train_q[,1:11], train_q[,13], method="rpart", preProcess=c ("BoxCox"))
+fit_qg_cart
+prediction_qg_cart = predict(fit_qg_cart, test_q[,1:11])
+table(prediction_qg_cart, test_q$quality_group)
+
+# KNN
+fit_q_knn <- train(train_q[,1:11], train_q[,12], method = "knn", preProcess=c ("BoxCox"))
+fit_q_knn
+prediction_q_knn = predict(fit_q_knn, test_q[,1:11])
+table(prediction_q_knn, test_q$quality)
+
+fit_qg_knn <- train(train_q[,1:11], train_q[,13], method = "knn", preProcess=c ("BoxCox"))
+fit_qg_knn
+prediction_qg_knn = predict(fit_qg_knn, test_q[,1:11])
+table(prediction_qg_knn, test_q$quality_group)
+
+# Random forest
+fit_q_rf_scale <- train(train_q[,1:11], train_q[,12], method = "rf", preProcess=c ("scale"))
+fit_q_rf_scale
+fit_q_rf <- train(train_q[,1:11], train_q[,12], method = "rf", preProcess=c ("BoxCox"))
+fit_q_rf
+prediction_q_rf = predict(fit_q_rf, test_q[,1:11])
+table(prediction_q_rf, test_q$quality)
+
+fit_qg_rf <- train(train_q[,1:11], train_q[,13], method = "rf", preProcess=c ("BoxCox"))
+fit_qg_rf
+prediction_qg_rf = predict(fit_qg_rf, test_q[,1:11])
+table(prediction_qg_rf, test_q$quality_group)
+
+# SVM
+fit_q_svm <- train(train_q[,1:11], train_q[,12], method="svmRadial", preProcess=c ("BoxCox"))
+fit_q_svm
+prediction_q_svm = predict(fit_q_svm, test_q[,1:11])
+table(prediction_q_svm, test_q$quality)
+
+fit_qg_svm <- train(train_q[,1:11], train_q[,13], method="svmRadial", preProcess=c ("BoxCox"))
+fit_qg_svm
+prediction_qg_svm = predict(fit_qg_svm, test_q[,1:11])
+table(prediction_qg_svm, test_q$quality_group)
+
+
 # Graficar un compatativo de los resultados de los modelos, seleccionar uno de ellos para su uso 
 # y explicar el criterio de selección del algoritmo.
 # 
+
+results_q <- resamples(list(CART=fit_q_cart, SVM=fit_q_svm, KNN=fit_q_knn, RF=fit_q_rf))
+results_q
+scales_q <- list(x=list(relation="free"), y=list(relation="free"))
+bwplot(results_q, scales_q=scales_q)
+
+results_qg <- resamples(list(CART=fit_qg_cart, SVM=fit_qg_svm, KNN=fit_qg_knn, RF=fit_qg_rf))
+results_qg
+scales_qg <- list(x=list(relation="free"), y=list(relation="free"))
+bwplot(results_qg, scales_qg=scales_qg)
+
+
 # Seleccionar un algoritmo de los entrenados y realizar al menos una optimización por hiperparametrización
+# Selecciono Random forest que es el que dio mejores resultados de Kappa y accuaracy
+print(fit_q_rf)
+
+param_grid_q <- expand.grid(mtry = c(1.55, 1.6, 1.65))
+fit_q_rf_optimizado <- train(train_q[,1:11], train_q[,12], 
+                             method = "rf", 
+                             preProcess = c("BoxCox"),
+                             tuneGrid = param_grid_q)
+fit_q_rf_optimizado
+prediction_q_rf_optimizado = predict(fit_q_rf_optimizado, test_q[,1:11])
+table(prediction_q_rf_optimizado, test_q$quality)
+
+print(fit_qg_rf)
+param_grid_qg <- expand.grid(mtry = c(0.8, 1.0, 1.2))
+fit_qg_rf_optimizado <- train(train_q[,1:11], train_q[,13], 
+                              method = "rf", 
+                              preProcess = c("BoxCox"),
+                              tuneGrid = param_grid_qg)
+
+fit_qg_rf_optimizado
+prediction_qg_rf_optimizado = predict(fit_qg_rf_optimizado, test_q[,1:11])
+table(prediction_qg_rf_optimizado, test_q$quality_group)
+
+
