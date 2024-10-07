@@ -1,11 +1,6 @@
-#######################
-## TRABAJO PRÁCTICO 2 #
-##    LUCÍA OTERO     #
-#######################
 
 dev.off()
-# Construir un script de R que :
-#   
+
 # El archivo winequality-red.csv es un archivo que tiene mediciones de un conjunto de variables 
 # de diversos vinos y una clasificación de calidad (campo quality) la cual buscaremos predecir.
 # 
